@@ -19,19 +19,20 @@ def ask_openai(prompt: str, system: str) -> list[str]:
     return [l.strip().lower() for l in text.split("\n") if l.strip()]
 
 
-def ask_gemini(prompt: str, system_prompt: str = "") -> str:
-    """
-    Gemini LLM call using new google.genai SDK
-    """
-    full_prompt = (
-        f"{system_prompt}\n\n{prompt}"
-        if system_prompt else prompt
-    )
+def ask_gemini(prompt: str, system: str) -> list[str]:
+    try:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=f"{system}\n\n{prompt}"
+        )
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=full_prompt
-    )
+        text = response.text or ""
+        return [l.strip().lower() for l in text.split("\n") if l.strip()]
 
-    text = response.text
-    return [l.strip().lower() for l in text.split("\n") if l.strip()]
+    except genai.erros.Clienterror as e:
+        # Gemini quota exceeded → DO NOT crash backend
+        if e.status_code == 429 or "RESOURCE_EXHAUSTED" in str(e):
+            print("⚠️ Gemini quota exhausted. Skipping Gemini.")
+            return []   # critical: safe fallback
+
+        raise e
