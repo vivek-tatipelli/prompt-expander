@@ -1,6 +1,10 @@
 from difflib import SequenceMatcher
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from backend.llm import ask_openai, ask_gemini
+
+SIMILARITY_THRESHOLD = 0.85
 
 SIMILARITY_THRESHOLD = 0.85
 
@@ -29,36 +33,55 @@ def is_brand_visible(brand: str, brands: list[str]) -> bool:
             return True
     return False
 
-def check_visibility(prompts: list, brand: str):
-    appeared = 0
+def process_prompt(prompt: str, brand: str):
+    """
+    Process one prompt (OpenAI + Gemini).
+    This runs inside a thread.
+    """
+
+    openai_brands = ask_openai(prompt, VISIBILITY_SYSTEM_PROMPT)
+    found_in_openai = is_brand_visible(brand, openai_brands)
+
+    # Gemini is OPTIONAL (quota safe)
+    gemini_brands = ask_gemini(prompt, VISIBILITY_SYSTEM_PROMPT)
+    found_in_gemini = bool(gemini_brands) and is_brand_visible(
+        brand, gemini_brands
+    )
+
+    brand_found = found_in_openai or found_in_gemini
+
+    combined_brands = list(set(openai_brands + gemini_brands))
+    top_3_brands = [
+        b for b, _ in Counter(combined_brands).most_common(3)
+    ]
+
+    return {
+        "prompt": prompt,
+        "brand_found": brand_found,
+        "found_in_openai": found_in_openai,
+        "found_in_gemini": found_in_gemini,
+        "top_3_brands": top_3_brands,
+        "openai_brands": openai_brands,
+        "gemini_brands": gemini_brands
+    }
+
+
+def check_visibility(prompts: list[str], brand: str):
     results = []
+    appeared = 0
 
-    for prompt in prompts:
-        openai_brands = ask_openai(prompt, VISIBILITY_SYSTEM_PROMPT)
-        gemini_brands = ask_gemini(prompt, VISIBILITY_SYSTEM_PROMPT)
-
-        found_in_openai = is_brand_visible(brand, openai_brands)
-        found_in_gemini = is_brand_visible(brand, gemini_brands)
-
-        brand_found = found_in_openai or found_in_gemini
-        if brand_found:
-            appeared += 1
-
- 
-        combined_brands = list(set(openai_brands + gemini_brands))
-        top_3_brands = [
-            b for b, _ in Counter(combined_brands).most_common(3)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [
+            executor.submit(process_prompt, prompt, brand)
+            for prompt in prompts
         ]
 
-        results.append({
-            "prompt": prompt,
-            "brand_found": brand_found,
-            "found_in_openai": found_in_openai,
-            "found_in_gemini": found_in_gemini,
-            "top_3_brands": top_3_brands,
-            "openai_brands": openai_brands,
-            "gemini_brands": gemini_brands
-        })
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+
+            if result["brand_found"]:
+                appeared += 1
 
     total = len(prompts)
     visibility_percentage = round(
