@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 from collections import defaultdict
+import os
 
 # ---------------------------------
 # PAGE CONFIG
@@ -46,9 +47,15 @@ if run:
         "market": market
     }
 
+    BACKEND_URL = os.getenv("BACKEND_URL")
+
+    if not BACKEND_URL:
+        st.error("BACKEND_URL is not configured.")
+        st.stop()
+
     with st.spinner("Running brand visibility analysis across LLMs..."):
         res = requests.post(
-            "http://localhost:8000/analyze",
+            f"{BACKEND_URL}/analyze",
             json=payload,
             timeout=600
         )
