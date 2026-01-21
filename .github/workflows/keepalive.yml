@@ -1,0 +1,12 @@
+name: Keep App Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # Runs every 10 minutes
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: curl https://prompt-expander.onrender.com/health
