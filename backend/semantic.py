@@ -18,7 +18,7 @@ def expand_semantic_keywords(seed: str) -> list:
     prompt = f"""
     You are a Marketing Strategist.
 
-    Expand the seed keyword "{seed}" into exactly 6 keyword phrases
+    Expand the seed keyword "{seed}" into exactly 3 keyword phrases
     that represent the same or closely related service intent.
 
     IMPORTANT RULES:

@@ -156,7 +156,7 @@ if run:
     st.subheader("🧠 Best Final Discovery Prompt")
 
     st.markdown(
-        "Use this prompt to test or improve your brand’s AI visibility:"
+        "Use this prompt to test or improve your brand’s visibility:"
     )
 
     with st.container(border=True):

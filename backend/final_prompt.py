@@ -27,7 +27,7 @@ Service domain: "{seed_keyword}"
 Related service terms: {", ".join(semantic_keywords)}
 Target market: {market}
 
-Generate ONE authoritative discovery-style query that could be
+Generate one authoritative discovery-style query that could be
 used to evaluate which brands or solutions are most visible
 in AI-generated answers for this service domain.
 """
