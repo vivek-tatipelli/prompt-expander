@@ -54,12 +54,6 @@ if run:
     if not BACKEND_URL:
         st.error("BACKEND_URL is not configured.")
         st.stop()
-        
-    progress_bar = st.progress(0)
-    status = st.empty()
-
-    status.text("Request accepted...")
-    progress_bar.progress(10)
 
     try:
         status.text("Running analysis across LLMs...")
@@ -78,23 +72,15 @@ if run:
             status.text("Analysis failed")
             st.stop()
 
-        status.text("📊 Processing results...")
-        progress_bar.progress(90)
-
         data = res.json()
     
     except Exception as e:
         st.error(f"Request failed: {e}")
-        progress_bar.progress(100)
-        status.text("Analysis failed")
         st.stop()
 
     # ---------------------------------
     # OVERALL VISIBILITY
     # ---------------------------------
-    
-    progress_bar.progress(100)
-    status.text("Analysis completed successfully")
     
     st.subheader("📊 Overall Brand Visibility")
 
