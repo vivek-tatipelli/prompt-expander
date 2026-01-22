@@ -36,8 +36,6 @@ if run and not email:
     st.warning("Please enter your email address to continue.")
     st.stop()
 
-progress_bar = st.progress(0)
-status = st.empty()
 # ---------------------------------
 # RUN ANALYSIS
 # ---------------------------------
@@ -56,9 +54,6 @@ if run:
         st.stop()
 
     try:
-        status.text("Running analysis across LLMs...")
-        progress_bar.progress(50)
-
         with st.spinner("Analyzing brand visibility..."):
             res = requests.post(
                 f"{BACKEND_URL}/analyze",
@@ -68,8 +63,6 @@ if run:
 
         if res.status_code != 200:
             st.error("Backend error. Check FastAPI logs.")
-            progress_bar.progress(100)
-            status.text("Analysis failed")
             st.stop()
 
         data = res.json()
