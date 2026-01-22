@@ -4,7 +4,7 @@ FINAL_PROMPT_SYSTEM = """
 You are a senior Marketing Strategist specializing in AI discovery.
 
 Your task is to generate ONE high-quality, verbose discovery query
-used to evaluate AI brand visibility.
+used to find the brand visibility.
 
 STRICT RULES:
 - Output ONLY the final prompt text
