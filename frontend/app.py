@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 from collections import defaultdict
 import os
+import time
 
 # ---------------------------------
 # PAGE CONFIG
@@ -37,7 +38,7 @@ if run and not email:
     st.stop()
 
 # ---------------------------------
-# RUN ANALYSIS
+# RUN ANALYSIS (JOB-BASED)
 # ---------------------------------
 if run:
     payload = {
@@ -49,32 +50,73 @@ if run:
 
     BACKEND_URL = os.getenv("BACKEND_URL")
 
-    if not BACKEND_URL:
+    '''if not BACKEND_URL:
         st.error("BACKEND_URL is not configured.")
-        st.stop()
+        st.stop()'''
 
+    # ---- START JOB ----
     try:
-        with st.spinner("Analyzing brand visibility..."):
-            res = requests.post(
-                f"{BACKEND_URL}/analyze",
-                json=payload,
-                timeout=600
-            )
+        start_res = requests.post(
+            f"{BACKEND_URL}/analyze/start",
+            json=payload,
+            timeout=30
+        )
 
-        if res.status_code != 200:
-            st.error("Backend error. Check FastAPI logs.")
+        if start_res.status_code != 200:
+            st.error("Failed to start analysis job.")
             st.stop()
 
-        data = res.json()
-    
+        job_id = start_res.json()["job_id"]
+
     except Exception as e:
-        st.error(f"Request failed: {e}")
+        st.error(f"Failed to start job: {e}")
         st.stop()
+
+    # ---- REAL PROGRESS BAR ----
+    st.subheader("⏳ Analysis Progress")
+
+    progress_bar = st.progress(0)
+    progress_text = st.empty()
+
+    data = None
+
+    while True:
+        try:
+            status_res = requests.get(
+                f"{BACKEND_URL}/analyze/status/{job_id}",
+                timeout=30
+            )
+
+            if status_res.status_code != 200:
+                st.error("Failed to fetch job status.")
+                st.stop()
+
+            status = status_res.json()
+
+        except Exception as e:
+            st.error(f"Status polling failed: {e}")
+            st.stop()
+
+        if status["status"] == "running":
+            progress = int(status.get("progress", 0))
+            progress_bar.progress(progress)
+            progress_text.text(f"Processing… {progress}% completed")
+            time.sleep(1)
+
+        elif status["status"] == "completed":
+            progress_bar.progress(100)
+            progress_text.text("Analysis complete ✔")
+            data = status["result"]
+            break
+
+        elif status["status"] == "failed":
+            st.error(status.get("error", "Analysis failed"))
+            st.stop()
 
     # ---------------------------------
     # OVERALL VISIBILITY
     # ---------------------------------
-    
+    st.divider()
     st.subheader("📊 Overall Brand Visibility")
 
     st.metric(
@@ -83,11 +125,10 @@ if run:
         delta=f"{data['appeared']} / {data['total_prompts']} prompts"
     )
 
-    st.divider()
-
     # ---------------------------------
     # GROUP BY SEMANTIC KEYWORD
     # ---------------------------------
+    st.divider()
     grouped = defaultdict(list)
     for item in data["details"]:
         grouped[item["semantic_keyword"]].append(item)
@@ -100,7 +141,6 @@ if run:
         score = round((appeared / total) * 100, 2) if total else 0
 
         with st.expander(f"🔹 {semantic}", expanded=False):
-
             st.metric(
                 label="Visibility %",
                 value=f"{score}%",
@@ -133,27 +173,59 @@ if run:
                     )
 
     # ---------------------------------
-    # FINAL TOP 3 BRANDS (CARD)
+    # FINAL TOP 3 BRANDS
     # ---------------------------------
     st.divider()
     st.subheader("🏆 Top 3 Brands Seen Across All LLMs")
 
-    if data["top_3_brands"]:
+    if data.get("top_3_brands"):
         with st.container(border=True):
             for idx, b in enumerate(data["top_3_brands"], start=1):
                 st.markdown(f"### {idx}. {b}")
     else:
         st.info("No competing brands detected.")
-        
+
+    # ---------------------------------
+    # BEST REAL DISCOVERY PROMPT
+    # ---------------------------------
     st.divider()
-    st.subheader("🧠 Best Final Discovery Prompt")
+    st.subheader("🧠 Best Real Discovery Prompt")
 
-    st.markdown(
-        "Use this prompt to test or improve your brand’s visibility:"
-    )
+    bdp = data.get("best_discovery_prompt")
 
-    with st.container(border=True):
-        st.code(data["final_verbose_prompt"], language="text")
+    if bdp:
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Original user-style prompt**")
+            with st.container(border=True):
+                st.code(bdp["original"], language="text")
+
+        with col2:
+            st.markdown("**Expanded prompt**")
+
+            st.markdown(
+                f"""
+                <div style="
+                    max-height: 260px;
+                    overflow-y: auto;
+                    padding: 14px;
+                    border: 1px solid #e6e6e6;
+                    border-radius: 6px;
+                    background-color: #0e1117;
+                    color: #fafafa;
+                    font-family: monospace;
+                    white-space: pre-wrap;
+                ">
+                {bdp["expanded"]}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    else:
+        st.info("No discovery prompt available.")
+
 
     # ---------------------------------
     # FINAL INTERPRETATION

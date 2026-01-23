@@ -1,4 +1,3 @@
-import asyncio
 from difflib import SequenceMatcher
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -16,85 +15,73 @@ well-known brands, companies, or tools relevant to the query.
 Rules:
 - Respond ONLY with a simple list of names
 - One brand per line
-- Do NOT include descriptions or explanations
-- Do NOT include introductory or concluding text
-- Do NOT rank unless explicitly asked
-- Be factual and neutral
+- Do NOT include descriptions
 """
+
 
 def similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
 
 def is_brand_visible(brand: str, brands: list[str]) -> bool:
-    for b in brands:
-        if similarity(brand, b) >= SIMILARITY_THRESHOLD:
-            return True
-    return False
+    return any(similarity(brand, b) >= SIMILARITY_THRESHOLD for b in brands)
 
-async def process_prompt(prompt: str, brand: str):
-    openai_task = asyncio.to_thread(
-        ask_openai, prompt, VISIBILITY_SYSTEM_PROMPT
-    )
-    gemini_task = asyncio.to_thread(
-        ask_gemini, prompt, VISIBILITY_SYSTEM_PROMPT
-    )
 
-    openai_result, gemini_result = await asyncio.gather(
-        openai_task,
-        gemini_task,
-        return_exceptions=True
-    )
+def process_prompt(prompt: str, brand: str):
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {
+            executor.submit(ask_openai, prompt, VISIBILITY_SYSTEM_PROMPT): "openai",
+            executor.submit(ask_gemini, prompt, VISIBILITY_SYSTEM_PROMPT): "gemini",
+        }
 
-    # Handle OpenAI failure safely
-    if isinstance(openai_result, Exception):
-        print("⚠️ OpenAI failed:", openai_result)
         openai_brands = []
-    else:
-        openai_brands = openai_result
-
-    # Handle Gemini failure safely
-    if isinstance(gemini_result, Exception):
-        print("⚠️ Gemini failed:", gemini_result)
         gemini_brands = []
-    else:
-        gemini_brands = gemini_result
 
-    found_in_openai = is_brand_visible(brand, openai_brands)
-    found_in_gemini = is_brand_visible(brand, gemini_brands)
+        for future in as_completed(futures):
+            source = futures[future]
+            try:
+                result = future.result()
+                if source == "openai":
+                    openai_brands = result
+                else:
+                    gemini_brands = result
+            except Exception as e:
+                print(f"⚠️ {source.upper()} failed:", e)
 
-    brand_found = found_in_openai or found_in_gemini
+    found_openai = is_brand_visible(brand, openai_brands)
+    found_gemini = is_brand_visible(brand, gemini_brands)
 
-    combined_brands = list(set(openai_brands + gemini_brands))
-    top_3_brands = [
-        b for b, _ in Counter(combined_brands).most_common(3)
-    ]
+    combined = list(set(openai_brands + gemini_brands))
+    top_3 = [b for b, _ in Counter(combined).most_common(3)]
 
     return {
         "prompt": prompt,
-        "brand_found": brand_found,
-        "found_in_openai": found_in_openai,
-        "found_in_gemini": found_in_gemini,
-        "top_3_brands": top_3_brands,
+        "brand_found": found_openai or found_gemini,
+        "found_in_openai": found_openai,
+        "found_in_gemini": found_gemini,
+        "top_3_brands": top_3,
         "openai_brands": openai_brands,
         "gemini_brands": gemini_brands
     }
 
-async def check_visibility(prompts: list[str], brand: str):
-    tasks = [
-        process_prompt(prompt, brand)
-        for prompt in prompts
-    ]
 
-    results = await asyncio.gather(*tasks)  
-    
-    valid_results = [
-        r for r in results
-        if r["openai_brands"] or r["gemini_brands"]
-    ]
+def check_visibility(prompts: list[str], brand: str):
+    results = []
+    appeared = 0
 
-    appeared = sum(1 for r in valid_results if r["brand_found"])
-    total = len(valid_results)
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [
+            executor.submit(process_prompt, p, brand)
+            for p in prompts
+        ]
+
+        for future in as_completed(futures):
+            r = future.result()
+            results.append(r)
+            if r["brand_found"]:
+                appeared += 1
+
+    total = len(results)
 
     return {
         "total_prompts": total,
