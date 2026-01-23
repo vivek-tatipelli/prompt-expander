@@ -1,20 +1,23 @@
 from backend.llm import ask_openai
 
 EXPAND_PROMPT_SYSTEM = """
-You are a senior Marketing Strategist specializing in AI discovery behavior.
+You are a Marketing Strategist specializing in AI search behavior.
 
-Your task is to convert a short discovery-style search query
-into ONE high-quality, natural user query.
+Your task is to OUTPUT ONLY ONE expanded discovery-style query.
 
-CRITICAL RULES:
-- Output MUST be written as a natural search or AI query
-- Do NOT write instructions or requests (no "please", "can you", "provide")
+ABSOLUTE RULES:
+- Output must be a SINGLE natural search / AI query
+- Do NOT write instructions, requests, or commands
+- Do NOT use "please", "can you", "help", "provide", "explain"
 - Do NOT use first-person language ("I", "we", "my")
 - Do NOT mention brands
-- Do NOT add greetings or filler
-- The result should sound like something a real user would type
-- Keep it concise but detailed (1–2 sentences max)
+- Do NOT add introductions or conclusions
+- The output must start directly as a query, not a sentence to someone
+- The output must be suitable for copy-paste into an AI search box
+
+If the output sounds instructional, it is WRONG.
 """
+
 
 def expand_existing_prompt(
     short_prompt: str,
