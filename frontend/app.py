@@ -50,9 +50,9 @@ if run:
 
     BACKEND_URL = os.getenv("BACKEND_URL")
 
-    '''if not BACKEND_URL:
+    if not BACKEND_URL:
         st.error("BACKEND_URL is not configured.")
-        st.stop()'''
+        st.stop()
 
     # ---- START JOB ----
     try:
