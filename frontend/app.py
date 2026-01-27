@@ -173,7 +173,7 @@ if run:
                         "OpenAI",
                         value=found_openai,
                         disabled=True,
-                        key=f"openai_{semantic}_{i['prompt']}"
+                        key=f"openai_{semantic}_{hash(i['prompt'])}"
                     )
 
                 with col3:
@@ -181,23 +181,24 @@ if run:
                         "Gemini",
                         value=found_gemini,
                         disabled=True,
-                        key=f"gemini_{semantic}_{i['prompt']}"
+                        key=f"gemini_{semantic}_{hash(i['prompt'])}"
                     )
 
                 with col4:
                     st.markdown(f"**{strength}**")
-        # ---------------------------------
-        # FINAL TOP 3 BRANDS
-        # ---------------------------------
-        st.divider()
-        st.subheader("🏆 Top 3 Brands Seen Across All LLMs")
 
-        if data.get("top_3_brands"):
-            with st.container(border=True):
-                for idx, b in enumerate(data["top_3_brands"], start=1):
-                    st.markdown(f"### {idx}. {b}")
-        else:
-            st.info("No competing brands detected.")
+    # ---------------------------------
+    # FINAL TOP 3 BRANDS
+    # ---------------------------------
+    st.divider()
+    st.subheader("🏆 Top 3 Brands Seen Across All LLMs")
+
+    if data.get("top_3_brands"):
+        with st.container(border=True):
+            for idx, b in enumerate(data["top_3_brands"], start=1):
+                st.markdown(f"### {idx}. {b}")
+    else:
+        st.info("No competing brands detected.")
 
     # ---------------------------------
     # BEST REAL DISCOVERY PROMPT
