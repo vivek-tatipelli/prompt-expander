@@ -129,6 +129,7 @@ if run:
     # GROUP BY SEMANTIC KEYWORD
     # ---------------------------------
     st.divider()
+
     grouped = defaultdict(list)
     for item in data["details"]:
         grouped[item["semantic_keyword"]].append(item)
@@ -150,7 +151,18 @@ if run:
             st.markdown("**Prompt-level visibility:**")
 
             for i in items:
-                col1, col2, col3 = st.columns([6, 1, 1])
+                col1, col2, col3, col4 = st.columns([6, 1, 1, 2])
+
+                found_openai = i.get("found_in_openai", False)
+                found_gemini = i.get("found_in_gemini", False)
+
+                # ---- Visibility strength logic ----
+                if found_openai and found_gemini:
+                    strength = "Strong"
+                elif found_openai or found_gemini:
+                    strength = "Partial"
+                else:
+                    strength = "Missing"
 
                 with col1:
                     icon = "✅" if i["brand_found"] else "❌"
@@ -159,7 +171,7 @@ if run:
                 with col2:
                     st.checkbox(
                         "OpenAI",
-                        value=i.get("found_in_openai", False),
+                        value=found_openai,
                         disabled=True,
                         key=f"openai_{semantic}_{i['prompt']}"
                     )
@@ -167,23 +179,25 @@ if run:
                 with col3:
                     st.checkbox(
                         "Gemini",
-                        value=i.get("found_in_gemini", False),
+                        value=found_gemini,
                         disabled=True,
                         key=f"gemini_{semantic}_{i['prompt']}"
                     )
 
-    # ---------------------------------
-    # FINAL TOP 3 BRANDS
-    # ---------------------------------
-    st.divider()
-    st.subheader("🏆 Top 3 Brands Seen Across All LLMs")
+                with col4:
+                    st.markdown(f"**{strength}**")
+        # ---------------------------------
+        # FINAL TOP 3 BRANDS
+        # ---------------------------------
+        st.divider()
+        st.subheader("🏆 Top 3 Brands Seen Across All LLMs")
 
-    if data.get("top_3_brands"):
-        with st.container(border=True):
-            for idx, b in enumerate(data["top_3_brands"], start=1):
-                st.markdown(f"### {idx}. {b}")
-    else:
-        st.info("No competing brands detected.")
+        if data.get("top_3_brands"):
+            with st.container(border=True):
+                for idx, b in enumerate(data["top_3_brands"], start=1):
+                    st.markdown(f"### {idx}. {b}")
+        else:
+            st.info("No competing brands detected.")
 
     # ---------------------------------
     # BEST REAL DISCOVERY PROMPT
